@@ -15,17 +15,11 @@ const defaultBaseURL = "https://api.logtracehq.com/v1/developers"
 // Client is the Logtrace API client.
 type Client struct {
 	apiKey     string
-	baseURL    string
 	httpClient *http.Client
 }
 
 // Option configures the client.
 type Option func(*Client)
-
-// WithBaseURL overrides the default API base URL.
-func WithBaseURL(url string) Option {
-	return func(c *Client) { c.baseURL = url }
-}
 
 // WithHTTPClient sets a custom http.Client.
 func WithHTTPClient(hc *http.Client) Option {
@@ -35,8 +29,7 @@ func WithHTTPClient(hc *http.Client) Option {
 // New creates a Logtrace client. apiKey is required.
 func New(apiKey string, opts ...Option) *Client {
 	c := &Client{
-		apiKey:  apiKey,
-		baseURL: defaultBaseURL,
+		apiKey: apiKey,
 		httpClient: &http.Client{
 			Timeout: 10 * time.Second,
 		},
@@ -130,7 +123,7 @@ func (c *Client) post(ctx context.Context, path string, body any) (*APIResponse,
 		return nil, fmt.Errorf("logtrace: failed to marshal request: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+path, bytes.NewReader(payload))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, defaultBaseURL+path, bytes.NewReader(payload))
 	if err != nil {
 		return nil, fmt.Errorf("logtrace: failed to create request: %w", err)
 	}
