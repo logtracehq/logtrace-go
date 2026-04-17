@@ -53,6 +53,7 @@ type CreateEventRequest struct {
 	ClientUserAgent string `json:"client_user_agent"`
 	Type           string `json:"type,omitempty"`
 	GeoIPLocation  string `json:"geo_ip_location,omitempty"`
+	Metadata       Metadata `json:"metadata,omitempty"`	
 }
 
 type CreateSessionRequest struct {
@@ -64,6 +65,7 @@ type CreateSessionRequest struct {
 	IPAddress  string    `json:"ip_address,omitempty"`
 	Location   string    `json:"location,omitempty"`
 	Token      string    `json:"token,omitempty"`
+	Metadata   Metadata  `json:"metadata,omitempty"`
 }
 
 type Metadata map[string]any
