@@ -10,11 +10,11 @@ import (
 	"time"
 )
 
- type roundTripFunc func(*http.Request) (*http.Response, error)
+type roundTripFunc func(*http.Request) (*http.Response, error)
 
 func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
 
- func newTestClient(fn roundTripFunc) *Client {
+func newTestClient(fn roundTripFunc) *Client {
 	return New("test-api-key", WithHTTPClient(&http.Client{Transport: fn}))
 }
 
@@ -27,7 +27,6 @@ func jsonResponse(status int, body map[string]any) *http.Response {
 	}
 }
 
- 
 func TestCreateEvent_Success(t *testing.T) {
 	client := newTestClient(func(r *http.Request) (*http.Response, error) {
 		return jsonResponse(200, map[string]any{
@@ -43,7 +42,6 @@ func TestCreateEvent_Success(t *testing.T) {
 		ClientIP:        "192.168.1.1",
 		ClientUserAgent: "TestAgent/1.0",
 	})
-
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -67,7 +65,7 @@ func TestCreateEvent_SendsCorrectRequestBody(t *testing.T) {
 		if data["http_method"] != "POST" {
 			t.Errorf("expected http_method 'POST', got %v", data["http_method"])
 		}
- 		if _, ok := data["user_id"]; ok {
+		if _, ok := data["user_id"]; ok {
 			t.Error("expected user_id to be omitted when empty")
 		}
 
@@ -114,7 +112,6 @@ func TestCreateEvent_WithOptionalFields(t *testing.T) {
 	})
 }
 
- 
 func TestCreateSession_Success(t *testing.T) {
 	client := newTestClient(func(r *http.Request) (*http.Response, error) {
 		return jsonResponse(200, map[string]any{
@@ -127,7 +124,6 @@ func TestCreateSession_Success(t *testing.T) {
 		LoginAt: time.Date(2025, 1, 15, 10, 30, 0, 0, time.UTC),
 		Status:  "ACTIVE",
 	})
-
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -166,7 +162,6 @@ func TestCreateSession_WithAllFields(t *testing.T) {
 	})
 }
 
- 
 func TestCreateAuditLog_Success(t *testing.T) {
 	client := newTestClient(func(r *http.Request) (*http.Response, error) {
 		return jsonResponse(200, map[string]any{
@@ -179,7 +174,6 @@ func TestCreateAuditLog_Success(t *testing.T) {
 		Action:    "user.deleted",
 		Timestamp: "2025-03-10T14:00:00Z",
 	})
-
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -213,14 +207,13 @@ func TestCreateAuditLog_WithMetadata(t *testing.T) {
 		Timestamp: "2025-03-10T14:00:00Z",
 		UserID:    "usr_789",
 		RequestID: "req_abc",
-		Metadata: &Metadata{
-			Event:       "role_change",
-			Description: "Promoted to admin",
+		Metadata: Metadata{
+			"event":       "role_change",
+			"description": "Promoted to admin",
 		},
 	})
 }
 
- 
 func TestPost_SendsCorrectHeaders(t *testing.T) {
 	client := newTestClient(func(r *http.Request) (*http.Response, error) {
 		if got := r.Header.Get("Content-Type"); got != "application/json" {
@@ -293,7 +286,6 @@ func TestPost_SendsToCorrectEndpoints(t *testing.T) {
 	}
 }
 
- 
 func TestPost_APIError_400(t *testing.T) {
 	client := newTestClient(func(r *http.Request) (*http.Response, error) {
 		return jsonResponse(400, map[string]any{

@@ -63,22 +63,19 @@ type CreateSessionRequest struct {
 	DeviceInfo string    `json:"device_info,omitempty"`
 	IPAddress  string    `json:"ip_address,omitempty"`
 	Location   string    `json:"location,omitempty"`
+	Token      string    `json:"token,omitempty"`
 }
 
-type Metadata struct {
-	Event       string `json:"event,omitempty"`
-	Type        string `json:"type,omitempty"`
-	Description string `json:"description,omitempty"`
-}
+type Metadata map[string]any
 
 type CreateAuditLogRequest struct {
-	Action    string    `json:"action"`
-	Timestamp string    `json:"timestamp"`
-	UserID    string    `json:"user_id,omitempty"`
-	Username  string    `json:"username,omitempty"`
-	IPAddress string    `json:"ip_address,omitempty"`
-	RequestID string    `json:"request_id,omitempty"`
-	Metadata  *Metadata `json:"metadata,omitempty"`
+	Action    string   `json:"action"`
+	Timestamp string   `json:"timestamp"`
+	UserID    string   `json:"user_id,omitempty"`
+	Username  string   `json:"username,omitempty"`
+	IPAddress string   `json:"ip_address,omitempty"`
+	RequestID string   `json:"request_id,omitempty"`
+	Metadata  Metadata `json:"metadata,omitempty"`
 }
 
 // --- Response types ---
