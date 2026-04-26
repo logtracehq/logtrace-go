@@ -14,8 +14,10 @@ type roundTripFunc func(*http.Request) (*http.Response, error)
 
 func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
 
-func newTestClient(fn roundTripFunc) *Client {
-	return New("test-api-key", WithHTTPClient(&http.Client{Transport: fn}))
+func testClient(fn roundTripFunc) *Client {
+	c := New("test-api-key")
+	c.httpClient.Transport = fn
+	return c
 }
 
 func jsonResponse(status int, body map[string]any) *http.Response {
@@ -28,7 +30,7 @@ func jsonResponse(status int, body map[string]any) *http.Response {
 }
 
 func TestCreateEvent_Success(t *testing.T) {
-	client := newTestClient(func(r *http.Request) (*http.Response, error) {
+	client := testClient(func(r *http.Request) (*http.Response, error) {
 		return jsonResponse(200, map[string]any{
 			"message":    "Event created",
 			"statusCode": 200,
@@ -54,7 +56,7 @@ func TestCreateEvent_Success(t *testing.T) {
 }
 
 func TestCreateEvent_SendsCorrectRequestBody(t *testing.T) {
-	client := newTestClient(func(r *http.Request) (*http.Response, error) {
+	client := testClient(func(r *http.Request) (*http.Response, error) {
 		body, _ := io.ReadAll(r.Body)
 		var data map[string]any
 		json.Unmarshal(body, &data)
@@ -82,7 +84,7 @@ func TestCreateEvent_SendsCorrectRequestBody(t *testing.T) {
 }
 
 func TestCreateEvent_WithOptionalFields(t *testing.T) {
-	client := newTestClient(func(r *http.Request) (*http.Response, error) {
+	client := testClient(func(r *http.Request) (*http.Response, error) {
 		body, _ := io.ReadAll(r.Body)
 		var data map[string]any
 		json.Unmarshal(body, &data)
@@ -113,7 +115,7 @@ func TestCreateEvent_WithOptionalFields(t *testing.T) {
 }
 
 func TestCreateSession_Success(t *testing.T) {
-	client := newTestClient(func(r *http.Request) (*http.Response, error) {
+	client := testClient(func(r *http.Request) (*http.Response, error) {
 		return jsonResponse(200, map[string]any{
 			"message":    "Session created",
 			"statusCode": 200,
@@ -133,7 +135,7 @@ func TestCreateSession_Success(t *testing.T) {
 }
 
 func TestCreateSession_WithAllFields(t *testing.T) {
-	client := newTestClient(func(r *http.Request) (*http.Response, error) {
+	client := testClient(func(r *http.Request) (*http.Response, error) {
 		body, _ := io.ReadAll(r.Body)
 		var data map[string]any
 		json.Unmarshal(body, &data)
@@ -163,7 +165,7 @@ func TestCreateSession_WithAllFields(t *testing.T) {
 }
 
 func TestCreateAuditLog_Success(t *testing.T) {
-	client := newTestClient(func(r *http.Request) (*http.Response, error) {
+	client := testClient(func(r *http.Request) (*http.Response, error) {
 		return jsonResponse(200, map[string]any{
 			"message":    "Audit log created",
 			"statusCode": 200,
@@ -183,7 +185,7 @@ func TestCreateAuditLog_Success(t *testing.T) {
 }
 
 func TestCreateAuditLog_WithMetadata(t *testing.T) {
-	client := newTestClient(func(r *http.Request) (*http.Response, error) {
+	client := testClient(func(r *http.Request) (*http.Response, error) {
 		body, _ := io.ReadAll(r.Body)
 		var data map[string]any
 		json.Unmarshal(body, &data)
@@ -215,7 +217,7 @@ func TestCreateAuditLog_WithMetadata(t *testing.T) {
 }
 
 func TestPost_SendsCorrectHeaders(t *testing.T) {
-	client := newTestClient(func(r *http.Request) (*http.Response, error) {
+	client := testClient(func(r *http.Request) (*http.Response, error) {
 		if got := r.Header.Get("Content-Type"); got != "application/json" {
 			t.Errorf("expected Content-Type 'application/json', got %q", got)
 		}
@@ -275,7 +277,7 @@ func TestPost_SendsToCorrectEndpoints(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			client := newTestClient(func(r *http.Request) (*http.Response, error) {
+			client := testClient(func(r *http.Request) (*http.Response, error) {
 				if !strings.HasSuffix(r.URL.Path, tt.wantPath) {
 					t.Errorf("expected path ending in %q, got %q", tt.wantPath, r.URL.Path)
 				}
@@ -287,7 +289,7 @@ func TestPost_SendsToCorrectEndpoints(t *testing.T) {
 }
 
 func TestPost_APIError_400(t *testing.T) {
-	client := newTestClient(func(r *http.Request) (*http.Response, error) {
+	client := testClient(func(r *http.Request) (*http.Response, error) {
 		return jsonResponse(400, map[string]any{
 			"message":    "Bad request: missing action_name",
 			"statusCode": 400,
@@ -316,7 +318,7 @@ func TestPost_APIError_400(t *testing.T) {
 }
 
 func TestPost_APIError_401_Unauthorized(t *testing.T) {
-	client := newTestClient(func(r *http.Request) (*http.Response, error) {
+	client := testClient(func(r *http.Request) (*http.Response, error) {
 		return jsonResponse(401, map[string]any{
 			"message":    "Invalid API key",
 			"statusCode": 401,
@@ -338,7 +340,7 @@ func TestPost_APIError_401_Unauthorized(t *testing.T) {
 }
 
 func TestPost_APIError_500_ServerError(t *testing.T) {
-	client := newTestClient(func(r *http.Request) (*http.Response, error) {
+	client := testClient(func(r *http.Request) (*http.Response, error) {
 		return jsonResponse(500, map[string]any{
 			"message":    "Internal server error",
 			"statusCode": 500,
@@ -359,7 +361,7 @@ func TestPost_APIError_500_ServerError(t *testing.T) {
 }
 
 func TestPost_APIError_NonJSONResponse(t *testing.T) {
-	client := newTestClient(func(r *http.Request) (*http.Response, error) {
+	client := testClient(func(r *http.Request) (*http.Response, error) {
 		return &http.Response{
 			StatusCode: 502,
 			Header:     http.Header{"Content-Type": []string{"text/plain"}},
@@ -385,7 +387,7 @@ func TestPost_APIError_NonJSONResponse(t *testing.T) {
 }
 
 func TestPost_NetworkError(t *testing.T) {
-	client := newTestClient(func(r *http.Request) (*http.Response, error) {
+	client := testClient(func(r *http.Request) (*http.Response, error) {
 		return nil, &net_error{msg: "connection refused"}
 	})
 
@@ -423,14 +425,6 @@ func TestNew_DefaultHTTPClient(t *testing.T) {
 	}
 }
 
-func TestNew_WithCustomHTTPClient(t *testing.T) {
-	custom := &http.Client{Timeout: 30 * time.Second}
-	c := New("key", WithHTTPClient(custom))
-	if c.httpClient != custom {
-		t.Error("expected custom httpClient to be set")
-	}
-}
-
 // --- Error type tests ---
 
 func TestError_ErrorString(t *testing.T) {
@@ -444,7 +438,7 @@ func TestError_ErrorString(t *testing.T) {
 // --- Context cancellation test ---
 
 func TestPost_CancelledContext(t *testing.T) {
-	client := newTestClient(func(r *http.Request) (*http.Response, error) {
+	client := testClient(func(r *http.Request) (*http.Response, error) {
 		return nil, r.Context().Err()
 	})
 
