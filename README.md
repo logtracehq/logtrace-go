@@ -64,11 +64,4 @@ func main() {
 }
 ```
 
-## Custom Configuration
-
-```go
-client := logtrace.New("your-api-key",
-	logtrace.WithBaseURL("https://your-instance.com/v1/developers"),
-	logtrace.WithHTTPClient(&http.Client{Timeout: 30 * time.Second}),
-)
-```
+ 
