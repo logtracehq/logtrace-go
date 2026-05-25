@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-const defaultBaseURL = "http://localhost:8080/v1/developers"
+const defaultBaseURL = "https://api.logtracehq.com/v1/developers"
 
 // Client is the Logtrace API client.
 type Client struct {
