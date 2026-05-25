@@ -109,7 +109,7 @@ func TestCreateEvent_WithOptionalFields(t *testing.T) {
 		ClientIP:        "1.2.3.4",
 		ClientUserAgent: "Agent",
 		UserID:          "usr_123",
-		Username:        "john",
+		UserName:        "john",
 		GeoIPLocation:   "US",
 	})
 }
@@ -157,7 +157,7 @@ func TestCreateSession_WithAllFields(t *testing.T) {
 		LoginAt:    time.Date(2025, 6, 1, 8, 0, 0, 0, time.UTC),
 		Status:     "ACTIVE",
 		UserID:     "usr_456",
-		Username:   "jane",
+		UserName:   "jane",
 		DeviceInfo: "Chrome on macOS",
 		IPAddress:  "10.0.0.5",
 		Location:   "New York, US",

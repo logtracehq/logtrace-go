@@ -11,7 +11,7 @@ type Metadata map[string]any
 type CreateEventRequest struct {
 	ActionName      string   `json:"action_name"`
 	UserID          string   `json:"user_id,omitempty"`
-	Username        string   `json:"username,omitempty"`
+	UserName        string   `json:"username,omitempty"`
 	HTTPMethod      string   `json:"http_method"`
 	HTTPStatus      string   `json:"http_status"`
 	HTTPEndpoint    string   `json:"http_endpoint,omitempty"`
@@ -26,7 +26,7 @@ type CreateSessionRequest struct {
 	LoginAt    time.Time `json:"login_at"`
 	Status     string    `json:"status"`
 	UserID     string    `json:"user_id,omitempty"`
-	Username   string    `json:"username,omitempty"`
+	UserName   string    `json:"username,omitempty"`
 	DeviceInfo string    `json:"device_info,omitempty"`
 	IPAddress  string    `json:"ip_address,omitempty"`
 	Location   string    `json:"location,omitempty"`
@@ -38,7 +38,7 @@ type CreateAuditLogRequest struct {
 	Action    string   `json:"action"`
 	Timestamp string   `json:"timestamp"`
 	UserID    string   `json:"user_id,omitempty"`
-	Username  string   `json:"username,omitempty"`
+	UserName  string   `json:"username,omitempty"`
 	IPAddress string   `json:"ip_address,omitempty"`
 	RequestID string   `json:"request_id,omitempty"`
 	Metadata  Metadata `json:"metadata,omitempty"`
