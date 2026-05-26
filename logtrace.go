@@ -13,7 +13,7 @@ type CreateEventRequest struct {
 	UserID          string   `json:"user_id,omitempty"`
 	UserName        string   `json:"username,omitempty"`
 	HTTPMethod      string   `json:"http_method"`
-	HTTPStatus      string   `json:"http_status"`
+	HTTPStatus      int      `json:"http_status"`
 	HTTPEndpoint    string   `json:"http_endpoint,omitempty"`
 	ClientIP        string   `json:"client_ip"`
 	ClientUserAgent string   `json:"client_user_agent"`

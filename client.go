@@ -16,17 +16,22 @@ const defaultBaseURL = "https://api.logtracehq.com/v1/developers"
 type Client struct {
 	apiKey     string
 	httpClient *http.Client
+	error      error
 }
 
 // New creates a Logtrace client. apiKey is required.
-func New(apiKey string) *Client {
+func New(apiKey string) (*Client, error) {
+	if apiKey == "" {
+		return nil, fmt.Errorf("logtrace: API key is required")
+	}
 	c := &Client{
 		apiKey: apiKey,
 		httpClient: &http.Client{
 			Timeout: 10 * time.Second,
 		},
 	}
-	return c
+
+	return c, nil
 }
 
 func (c *Client) post(ctx context.Context, path string, body any) (*APIResponse, error) {
@@ -56,20 +61,21 @@ func (c *Client) post(ctx context.Context, path string, body any) (*APIResponse,
 
 	if resp.StatusCode >= 400 {
 		apiErr := &Error{StatusCode: resp.StatusCode}
-		var apiResp APIResponse
-		if json.Unmarshal(respBody, &apiResp) == nil {
-			apiErr.Message = apiResp.Message
+		var res APIResponse
+		if json.Unmarshal(respBody, &res) == nil {
+			apiErr.Message = res.Message
 		} else {
 			apiErr.Message = string(respBody)
 		}
 		return nil, apiErr
 	}
 
-	var apiResp APIResponse
-	if err := json.Unmarshal(respBody, &apiResp); err != nil {
+	var res APIResponse
+	if err := json.Unmarshal(respBody, &res); err != nil {
 		return nil, fmt.Errorf("logtrace: failed to parse response: %w", err)
 	}
-	apiResp.StatusCode = resp.StatusCode
 
-	return &apiResp, nil
+	res.StatusCode = resp.StatusCode
+
+	return &res, nil
 }

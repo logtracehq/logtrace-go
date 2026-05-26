@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"log/slog"
 	"net/http"
 	"strings"
 	"testing"
@@ -14,10 +15,24 @@ type roundTripFunc func(*http.Request) (*http.Response, error)
 
 func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
 
-func testClient(fn roundTripFunc) *Client {
-	c := New("test-api-key")
-	c.httpClient.Transport = fn
-	return c
+func testClient(fn roundTripFunc) (*Client, error) {
+	client, err := New("test-api-key")
+	if err != nil {
+		slog.Error("failed to create client", "error", err)
+	}
+	client.httpClient.Transport = fn
+	return client, nil
+}
+
+func testRequestClient(c *Client) *requestClient {
+	return &requestClient{
+		client:    c,
+		method:    "POST",
+		endpoint:  "/run",
+		clientIP:  "192.168.1.1",
+		userAgent: "TestAgent/1.0",
+		status:    func() *int { s := 200; return &s }(),
+	}
 }
 
 func jsonResponse(status int, body map[string]any) *http.Response {
@@ -30,19 +45,16 @@ func jsonResponse(status int, body map[string]any) *http.Response {
 }
 
 func TestCreateEvent_Success(t *testing.T) {
-	client := testClient(func(r *http.Request) (*http.Response, error) {
+	client, _ := testClient(func(r *http.Request) (*http.Response, error) {
 		return jsonResponse(200, map[string]any{
 			"message":    "Event created",
 			"statusCode": 200,
 		}), nil
 	})
 
-	resp, err := client.CreateEvent(context.Background(), &CreateEventRequest{
-		ActionName:      "user.login",
-		HTTPMethod:      "POST",
-		HTTPStatus:      "200",
-		ClientIP:        "192.168.1.1",
-		ClientUserAgent: "TestAgent/1.0",
+	lc := testRequestClient(client)
+	resp, err := lc.CreateEvent(context.Background(), &CreateEventRequest{
+		ActionName: "user.login",
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -55,8 +67,8 @@ func TestCreateEvent_Success(t *testing.T) {
 	}
 }
 
-func TestCreateEvent_SendsCorrectRequestBody(t *testing.T) {
-	client := testClient(func(r *http.Request) (*http.Response, error) {
+func TestCreateEvent_MiddlewareFieldsInjected(t *testing.T) {
+	client, _ := testClient(func(r *http.Request) (*http.Response, error) {
 		body, _ := io.ReadAll(r.Body)
 		var data map[string]any
 		json.Unmarshal(body, &data)
@@ -65,7 +77,19 @@ func TestCreateEvent_SendsCorrectRequestBody(t *testing.T) {
 			t.Errorf("expected action_name 'user.signup', got %v", data["action_name"])
 		}
 		if data["http_method"] != "POST" {
-			t.Errorf("expected http_method 'POST', got %v", data["http_method"])
+			t.Errorf("expected injected http_method 'POST', got %v", data["http_method"])
+		}
+		if data["client_ip"] != "192.168.1.1" {
+			t.Errorf("expected injected client_ip '192.168.1.1', got %v", data["client_ip"])
+		}
+		if data["client_user_agent"] != "TestAgent/1.0" {
+			t.Errorf("expected injected user_agent 'TestAgent/1.0', got %v", data["client_user_agent"])
+		}
+		if data["http_endpoint"] != "/run" {
+			t.Errorf("expected injected endpoint '/run', got %v", data["http_endpoint"])
+		}
+		if data["http_status"] != float64(200) {
+			t.Errorf("expected injected http_status 200, got %v", data["http_status"])
 		}
 		if _, ok := data["user_id"]; ok {
 			t.Error("expected user_id to be omitted when empty")
@@ -74,17 +98,14 @@ func TestCreateEvent_SendsCorrectRequestBody(t *testing.T) {
 		return jsonResponse(200, map[string]any{"message": "ok", "statusCode": 200}), nil
 	})
 
-	client.CreateEvent(context.Background(), &CreateEventRequest{
-		ActionName:      "user.signup",
-		HTTPMethod:      "POST",
-		HTTPStatus:      "201",
-		ClientIP:        "10.0.0.1",
-		ClientUserAgent: "Mozilla/5.0",
+	lc := testRequestClient(client)
+	lc.CreateEvent(context.Background(), &CreateEventRequest{
+		ActionName: "user.signup",
 	})
 }
 
 func TestCreateEvent_WithOptionalFields(t *testing.T) {
-	client := testClient(func(r *http.Request) (*http.Response, error) {
+	client, _ := testClient(func(r *http.Request) (*http.Response, error) {
 		body, _ := io.ReadAll(r.Body)
 		var data map[string]any
 		json.Unmarshal(body, &data)
@@ -102,27 +123,25 @@ func TestCreateEvent_WithOptionalFields(t *testing.T) {
 		return jsonResponse(200, map[string]any{"message": "ok", "statusCode": 200}), nil
 	})
 
-	client.CreateEvent(context.Background(), &CreateEventRequest{
-		ActionName:      "user.login",
-		HTTPMethod:      "GET",
-		HTTPStatus:      "200",
-		ClientIP:        "1.2.3.4",
-		ClientUserAgent: "Agent",
-		UserID:          "usr_123",
-		UserName:        "john",
-		GeoIPLocation:   "US",
+	lc := testRequestClient(client)
+	lc.CreateEvent(context.Background(), &CreateEventRequest{
+		ActionName:    "user.login",
+		UserID:        "usr_123",
+		UserName:      "john",
+		GeoIPLocation: "US",
 	})
 }
 
 func TestCreateSession_Success(t *testing.T) {
-	client := testClient(func(r *http.Request) (*http.Response, error) {
+	client, _ := testClient(func(r *http.Request) (*http.Response, error) {
 		return jsonResponse(200, map[string]any{
 			"message":    "Session created",
 			"statusCode": 200,
 		}), nil
 	})
 
-	resp, err := client.CreateSession(context.Background(), &CreateSessionRequest{
+	lc := testRequestClient(client)
+	resp, err := lc.CreateSession(context.Background(), &CreateSessionRequest{
 		LoginAt: time.Date(2025, 1, 15, 10, 30, 0, 0, time.UTC),
 		Status:  "ACTIVE",
 	})
@@ -135,7 +154,7 @@ func TestCreateSession_Success(t *testing.T) {
 }
 
 func TestCreateSession_WithAllFields(t *testing.T) {
-	client := testClient(func(r *http.Request) (*http.Response, error) {
+	client, _ := testClient(func(r *http.Request) (*http.Response, error) {
 		body, _ := io.ReadAll(r.Body)
 		var data map[string]any
 		json.Unmarshal(body, &data)
@@ -153,7 +172,8 @@ func TestCreateSession_WithAllFields(t *testing.T) {
 		return jsonResponse(200, map[string]any{"message": "ok", "statusCode": 200}), nil
 	})
 
-	client.CreateSession(context.Background(), &CreateSessionRequest{
+	lc := testRequestClient(client)
+	lc.CreateSession(context.Background(), &CreateSessionRequest{
 		LoginAt:    time.Date(2025, 6, 1, 8, 0, 0, 0, time.UTC),
 		Status:     "ACTIVE",
 		UserID:     "usr_456",
@@ -165,14 +185,15 @@ func TestCreateSession_WithAllFields(t *testing.T) {
 }
 
 func TestCreateAuditLog_Success(t *testing.T) {
-	client := testClient(func(r *http.Request) (*http.Response, error) {
+	client, _ := testClient(func(r *http.Request) (*http.Response, error) {
 		return jsonResponse(200, map[string]any{
 			"message":    "Audit log created",
 			"statusCode": 200,
 		}), nil
 	})
 
-	resp, err := client.CreateAuditLog(context.Background(), &CreateAuditLogRequest{
+	lc := testRequestClient(client)
+	resp, err := lc.CreateAuditLog(context.Background(), &CreateAuditLogRequest{
 		Action:    "user.deleted",
 		Timestamp: "2025-03-10T14:00:00Z",
 	})
@@ -185,7 +206,7 @@ func TestCreateAuditLog_Success(t *testing.T) {
 }
 
 func TestCreateAuditLog_WithMetadata(t *testing.T) {
-	client := testClient(func(r *http.Request) (*http.Response, error) {
+	client, _ := testClient(func(r *http.Request) (*http.Response, error) {
 		body, _ := io.ReadAll(r.Body)
 		var data map[string]any
 		json.Unmarshal(body, &data)
@@ -204,7 +225,8 @@ func TestCreateAuditLog_WithMetadata(t *testing.T) {
 		return jsonResponse(200, map[string]any{"message": "ok", "statusCode": 200}), nil
 	})
 
-	client.CreateAuditLog(context.Background(), &CreateAuditLogRequest{
+	lc := testRequestClient(client)
+	lc.CreateAuditLog(context.Background(), &CreateAuditLogRequest{
 		Action:    "user.role_change",
 		Timestamp: "2025-03-10T14:00:00Z",
 		UserID:    "usr_789",
@@ -217,7 +239,7 @@ func TestCreateAuditLog_WithMetadata(t *testing.T) {
 }
 
 func TestPost_SendsCorrectHeaders(t *testing.T) {
-	client := testClient(func(r *http.Request) (*http.Response, error) {
+	client, _ := testClient(func(r *http.Request) (*http.Response, error) {
 		if got := r.Header.Get("Content-Type"); got != "application/json" {
 			t.Errorf("expected Content-Type 'application/json', got %q", got)
 		}
@@ -227,27 +249,22 @@ func TestPost_SendsCorrectHeaders(t *testing.T) {
 		return jsonResponse(200, map[string]any{"message": "ok", "statusCode": 200}), nil
 	})
 
-	client.CreateEvent(context.Background(), &CreateEventRequest{
-		ActionName:      "test",
-		HTTPMethod:      "GET",
-		HTTPStatus:      "200",
-		ClientIP:        "127.0.0.1",
-		ClientUserAgent: "test",
+	testRequestClient(client).CreateEvent(context.Background(), &CreateEventRequest{
+		ActionName: "test",
 	})
 }
 
 func TestPost_SendsToCorrectEndpoints(t *testing.T) {
 	tests := []struct {
 		name     string
-		call     func(*Client) error
+		call     func(*requestClient) error
 		wantPath string
 	}{
 		{
 			name: "events",
-			call: func(c *Client) error {
-				_, err := c.CreateEvent(context.Background(), &CreateEventRequest{
-					ActionName: "t", HTTPMethod: "GET", HTTPStatus: "200",
-					ClientIP: "0.0.0.0", ClientUserAgent: "t",
+			call: func(lc *requestClient) error {
+				_, err := lc.CreateEvent(context.Background(), &CreateEventRequest{
+					ActionName: "t",
 				})
 				return err
 			},
@@ -255,9 +272,9 @@ func TestPost_SendsToCorrectEndpoints(t *testing.T) {
 		},
 		{
 			name: "sessions",
-			call: func(c *Client) error {
-				_, err := c.CreateSession(context.Background(), &CreateSessionRequest{
-					LoginAt: time.Now(), Status: "ACTIVE",
+			call: func(lc *requestClient) error {
+				_, err := lc.CreateSession(context.Background(), &CreateSessionRequest{
+					LoginAt: time.Now(), Status: "active",
 				})
 				return err
 			},
@@ -265,8 +282,8 @@ func TestPost_SendsToCorrectEndpoints(t *testing.T) {
 		},
 		{
 			name: "audit-logs",
-			call: func(c *Client) error {
-				_, err := c.CreateAuditLog(context.Background(), &CreateAuditLogRequest{
+			call: func(lc *requestClient) error {
+				_, err := lc.CreateAuditLog(context.Background(), &CreateAuditLogRequest{
 					Action: "t", Timestamp: "2025-01-01T00:00:00Z",
 				})
 				return err
@@ -277,34 +294,33 @@ func TestPost_SendsToCorrectEndpoints(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			client := testClient(func(r *http.Request) (*http.Response, error) {
+			client, _ := testClient(func(r *http.Request) (*http.Response, error) {
 				if !strings.HasSuffix(r.URL.Path, tt.wantPath) {
 					t.Errorf("expected path ending in %q, got %q", tt.wantPath, r.URL.Path)
 				}
 				return jsonResponse(200, map[string]any{"message": "ok", "statusCode": 200}), nil
 			})
-			tt.call(client)
+			tt.call(testRequestClient(client))
 		})
 	}
 }
 
+// ---- Error handling tests ----
+
 func TestPost_APIError_400(t *testing.T) {
-	client := testClient(func(r *http.Request) (*http.Response, error) {
+	client, _ := testClient(func(r *http.Request) (*http.Response, error) {
 		return jsonResponse(400, map[string]any{
 			"message":    "Bad request: missing action_name",
 			"statusCode": 400,
 		}), nil
 	})
 
-	_, err := client.CreateEvent(context.Background(), &CreateEventRequest{
-		HTTPMethod: "GET", HTTPStatus: "200",
-		ClientIP: "0.0.0.0", ClientUserAgent: "t",
-	})
+	lc := testRequestClient(client)
+	_, err := lc.CreateEvent(context.Background(), &CreateEventRequest{})
 
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
-
 	apiErr, ok := err.(*Error)
 	if !ok {
 		t.Fatalf("expected *Error, got %T", err)
@@ -318,17 +334,15 @@ func TestPost_APIError_400(t *testing.T) {
 }
 
 func TestPost_APIError_401_Unauthorized(t *testing.T) {
-	client := testClient(func(r *http.Request) (*http.Response, error) {
+	client, _ := testClient(func(r *http.Request) (*http.Response, error) {
 		return jsonResponse(401, map[string]any{
 			"message":    "Invalid API key",
 			"statusCode": 401,
 		}), nil
 	})
 
-	_, err := client.CreateEvent(context.Background(), &CreateEventRequest{
-		ActionName: "t", HTTPMethod: "GET", HTTPStatus: "200",
-		ClientIP: "0.0.0.0", ClientUserAgent: "t",
-	})
+	lc := testRequestClient(client)
+	_, err := lc.CreateEvent(context.Background(), &CreateEventRequest{ActionName: "t"})
 
 	apiErr, ok := err.(*Error)
 	if !ok {
@@ -340,14 +354,15 @@ func TestPost_APIError_401_Unauthorized(t *testing.T) {
 }
 
 func TestPost_APIError_500_ServerError(t *testing.T) {
-	client := testClient(func(r *http.Request) (*http.Response, error) {
+	client, _ := testClient(func(r *http.Request) (*http.Response, error) {
 		return jsonResponse(500, map[string]any{
 			"message":    "Internal server error",
 			"statusCode": 500,
 		}), nil
 	})
 
-	_, err := client.CreateAuditLog(context.Background(), &CreateAuditLogRequest{
+	lc := testRequestClient(client)
+	_, err := lc.CreateAuditLog(context.Background(), &CreateAuditLogRequest{
 		Action: "t", Timestamp: "2025-01-01T00:00:00Z",
 	})
 
@@ -361,7 +376,7 @@ func TestPost_APIError_500_ServerError(t *testing.T) {
 }
 
 func TestPost_APIError_NonJSONResponse(t *testing.T) {
-	client := testClient(func(r *http.Request) (*http.Response, error) {
+	client, _ := testClient(func(r *http.Request) (*http.Response, error) {
 		return &http.Response{
 			StatusCode: 502,
 			Header:     http.Header{"Content-Type": []string{"text/plain"}},
@@ -369,10 +384,8 @@ func TestPost_APIError_NonJSONResponse(t *testing.T) {
 		}, nil
 	})
 
-	_, err := client.CreateEvent(context.Background(), &CreateEventRequest{
-		ActionName: "t", HTTPMethod: "GET", HTTPStatus: "200",
-		ClientIP: "0.0.0.0", ClientUserAgent: "t",
-	})
+	lc := testRequestClient(client)
+	_, err := lc.CreateEvent(context.Background(), &CreateEventRequest{ActionName: "t"})
 
 	apiErr, ok := err.(*Error)
 	if !ok {
@@ -387,14 +400,12 @@ func TestPost_APIError_NonJSONResponse(t *testing.T) {
 }
 
 func TestPost_NetworkError(t *testing.T) {
-	client := testClient(func(r *http.Request) (*http.Response, error) {
+	client, _ := testClient(func(r *http.Request) (*http.Response, error) {
 		return nil, &net_error{msg: "connection refused"}
 	})
 
-	_, err := client.CreateEvent(context.Background(), &CreateEventRequest{
-		ActionName: "t", HTTPMethod: "GET", HTTPStatus: "200",
-		ClientIP: "0.0.0.0", ClientUserAgent: "t",
-	})
+	lc := testRequestClient(client)
+	_, err := lc.CreateEvent(context.Background(), &CreateEventRequest{ActionName: "t"})
 
 	if err == nil {
 		t.Fatal("expected error, got nil")
@@ -404,16 +415,27 @@ func TestPost_NetworkError(t *testing.T) {
 	}
 }
 
-type net_error struct{ msg string }
+func TestFromContext_ReturnsInjectedClient(t *testing.T) {
+	base, _ := New("key")
+	rc := testRequestClient(base)
+	ctx := context.WithValue(context.Background(), clientKey, rc)
 
-func (e *net_error) Error() string   { return e.msg }
-func (e *net_error) Timeout() bool   { return false }
-func (e *net_error) Temporary() bool { return false }
+	got := FromContext(ctx, base)
+	if got != rc {
+		t.Error("expected FromContext to return the injected requestClient")
+	}
+}
 
-// --- Client construction tests ---
+func TestFromContext_FallsBackToBaseClient(t *testing.T) {
+	base, _ := New("key")
+	got := FromContext(context.Background(), base)
+	if got.client != base {
+		t.Error("expected FromContext fallback to wrap the base client")
+	}
+}
 
 func TestNew_DefaultHTTPClient(t *testing.T) {
-	c := New("my-key")
+	c, _ := New("my-key")
 	if c.apiKey != "my-key" {
 		t.Errorf("expected apiKey 'my-key', got %q", c.apiKey)
 	}
@@ -425,8 +447,6 @@ func TestNew_DefaultHTTPClient(t *testing.T) {
 	}
 }
 
-// --- Error type tests ---
-
 func TestError_ErrorString(t *testing.T) {
 	e := &Error{StatusCode: 404, Message: "Not found"}
 	want := "logtrace: 404 - Not found"
@@ -435,22 +455,24 @@ func TestError_ErrorString(t *testing.T) {
 	}
 }
 
-// --- Context cancellation test ---
-
 func TestPost_CancelledContext(t *testing.T) {
-	client := testClient(func(r *http.Request) (*http.Response, error) {
+	client, _ := testClient(func(r *http.Request) (*http.Response, error) {
 		return nil, r.Context().Err()
 	})
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	_, err := client.CreateEvent(ctx, &CreateEventRequest{
-		ActionName: "t", HTTPMethod: "GET", HTTPStatus: "200",
-		ClientIP: "0.0.0.0", ClientUserAgent: "t",
-	})
+	lc := testRequestClient(client)
+	_, err := lc.CreateEvent(ctx, &CreateEventRequest{ActionName: "t"})
 
 	if err == nil {
 		t.Fatal("expected error for cancelled context")
 	}
 }
+
+type net_error struct{ msg string }
+
+func (e *net_error) Error() string   { return e.msg }
+func (e *net_error) Timeout() bool   { return false }
+func (e *net_error) Temporary() bool { return false }

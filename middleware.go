@@ -1,22 +1,10 @@
 package logtrace
 
 import (
-	"encoding/json"
-	"log"
+	"context"
 	"net/http"
 	"strings"
-	"time"
 )
-
-type RequestLog struct {
-	Timestamp    string            `json:"timestamp"`
-	HTTPMethod   string            `json:"http_method"`
-	HTTPEndpoint string            `json:"http_endpoint"`
-	ClientIP     string            `json:"client_ip"`
-	Headers      map[string]string `json:"headers"`
-	StatusCode   int               `json:"status_code"`
-	Duration     string            `json:"duration"`
-}
 
 type responseWriter struct {
 	http.ResponseWriter
@@ -32,30 +20,24 @@ func (rw *responseWriter) WriteHeader(code int) {
 	rw.ResponseWriter.WriteHeader(code)
 }
 
-// Logs your requests
-func Logger(next http.Handler) http.Handler {
+func (c *Client) Logger(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		start := time.Now()
 		wrapped := newResponseWriter(w)
+		status := http.StatusOK
 
-		next.ServeHTTP(wrapped, r)
-
-		headers := make(map[string]string, len(r.Header))
-		for key, values := range r.Header {
-			headers[key] = values[len(values)-1]
+		rc := &requestClient{
+			client:    c,
+			method:    r.Method,
+			endpoint:  r.URL.RequestURI(),
+			clientIP:  realIP(r),
+			userAgent: r.UserAgent(),
+			status:    &status,
 		}
 
-		entry := RequestLog{
-			Timestamp:    start.UTC().Format(time.RFC3339),
-			HTTPMethod:   r.Method,
-			HTTPEndpoint: r.URL.RequestURI(),
-			ClientIP:     realIP(r),
-			Headers:      headers,
-			StatusCode:   wrapped.statusCode,
-			Duration:     time.Since(start).String(),
-		}
+		ctx := context.WithValue(r.Context(), clientKey, rc)
+		next.ServeHTTP(wrapped, r.WithContext(ctx))
 
-		logJSON(entry)
+		*rc.status = wrapped.statusCode
 	})
 }
 
@@ -78,13 +60,4 @@ func realIP(r *http.Request) string {
 		return strings.TrimSpace(ip)
 	}
 	return r.RemoteAddr
-}
-
-func logJSON(entry RequestLog) {
-	b, err := json.Marshal(entry)
-	if err != nil {
-		log.Printf("middleware: failed to marshal log entry: %v", err)
-		return
-	}
-	log.Println(string(b))
 }

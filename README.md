@@ -14,54 +14,72 @@ go get github.com/logtracehq/logtrace-go
 package main
 
 import (
-	"context"
 	"log"
+	"net/http"
+	"os"
 	"time"
+
+	_ "github.com/joho/godotenv/autoload"
 
 	logtrace "github.com/logtracehq/logtrace-go"
 )
 
 func main() {
-	client := logtrace.New("your-api-key")
+	client := logtrace.New(os.Getenv("API_KEY"))
 
-	// Create an event
-	_, err := client.CreateEvent(context.Background(), &logtrace.CreateEventRequest{
-		ActionName:      "user.login",
-		Username:        "jane_doe",
-		HTTPMethod:      "POST",
-		HTTPStatus:      "200",
-		ClientIP:        "192.168.1.1",
-		ClientUserAgent: "Mozilla/5.0",
-	})
-	if err != nil {
-		log.Fatal(err)
-	}
+	mux := http.NewServeMux()
+	mux.HandleFunc("/run", func(w http.ResponseWriter, r *http.Request) {
+		lc := logtrace.FromContext(r.Context(), client)
 
-	// Create a session
-	_, err = client.CreateSession(context.Background(), &logtrace.CreateSessionRequest{
-		LoginAt:  time.Now(),
-		Status:   "ACTIVE",
-		Username: "jane_doe",
-	})
-	if err != nil {
-		log.Fatal(err)
-	}
+		_, err := lc.CreateEvent(r.Context(), &logtrace.CreateEventRequest{
+			ActionName: "user.login",
+			UserID:     "12345",
+			UserName:   "jane_doe",
+			HTTPStatus: "200",
+			Metadata: logtrace.M    etadata{
+				"action":      "login",
+				"type":        "user",
+				"description": "User logged in successfully",
+			},
+		})
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 
-	// Create an audit log
-	_, err = client.CreateAuditLog(context.Background(), &logtrace.CreateAuditLogRequest{
-		Action:    "user.deleted",
-		Timestamp: time.Now().Format(time.RFC3339),
-		Username:  "jane_doe",
-		Metadata: &logtrace.Metadata{
-			Event:       "deletion",
-			Type:        "user",
-			Description: "User account was deleted",
-		},
+		// Create a session
+		_, err = lc.CreateSession(r.Context(), &logtrace.CreateSessionRequest{
+			LoginAt:  time.Now(),
+			Status:   "active",
+			UserName: "jane_doe",
+		})
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		// Create an audit log
+		_, err = lc.CreateAuditLog(r.Context(), &logtrace.CreateAuditLogRequest{
+			Action:    "user.deleted",
+			Timestamp: time.Now().Format(time.RFC3339),
+			UserName:  "jane_doe",
+			Metadata: logtrace.Metadata{
+				"action":      "deletion",
+				"type":        "user",
+				"description": "User account was deleted",
+			},
+		})
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("done"))
 	})
-	if err != nil {
-		log.Fatal(err)
-	}
+
+	log.Println("Server running on :5000")
+	log.Fatal(http.ListenAndServe(":5000", client.Logger(mux)))
 }
 ```
 
- 
