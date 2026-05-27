@@ -10,12 +10,14 @@ type contextKey string
 const clientKey contextKey = "logtrace_client"
 
 type requestClient struct {
-	client    *Client
-	method    string
-	endpoint  string
-	clientIP  string
-	userAgent string
-	status    *int
+	client          *Client
+	method          string
+	headers         map[string]string
+	endpoint        string
+	clientIP        string
+	userAgent       string
+	status          *int
+	operatingSystem string
 }
 
 func (rc *requestClient) buildRequestDetails() RequestDetails {
@@ -31,6 +33,8 @@ func (rc *requestClient) buildRequestDetails() RequestDetails {
 		IPAddress:       rc.clientIP,
 		ClientUserAgent: rc.userAgent,
 		HTTPStatusCode:  status,
+		OperatingSystem: rc.operatingSystem,
+		RequestHeaders:  rc.headers,
 	}
 }
 

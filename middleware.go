@@ -1,22 +1,10 @@
 package logtrace
 
 import (
-	"encoding/json"
-	"log"
+	"context"
 	"net/http"
 	"strings"
-	"time"
 )
-
-type RequestLog struct {
-	Timestamp  string            `json:"timestamp"`
-	Method     string            `json:"method"`
-	Endpoint   string            `json:"endpoint"`
-	IPAddress  string            `json:"ip_address"`
-	Headers    map[string]string `json:"headers"`
-	StatusCode int               `json:"status_code"`
-	Duration   string            `json:"duration"`
-}
 
 type responseWriter struct {
 	http.ResponseWriter
@@ -32,31 +20,35 @@ func (rw *responseWriter) WriteHeader(code int) {
 	rw.ResponseWriter.WriteHeader(code)
 }
 
-// Logs your requests
-func Logger(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		start := time.Now()
-		wrapped := newResponseWriter(w)
+// Handles injection of request details
+func Logger(client *Client) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			wrapped := newResponseWriter(w)
 
-		next.ServeHTTP(wrapped, r)
+			userAgent := r.UserAgent()
 
-		headers := make(map[string]string, len(r.Header))
-		for key, values := range r.Header {
-			headers[key] = values[len(values)-1]
-		}
+			rc := &requestClient{
+				client:          client,
+				method:          r.Method,
+				endpoint:        r.URL.RequestURI(),
+				clientIP:        realIP(r),
+				userAgent:       userAgent,
+				status:          &wrapped.statusCode,
+				operatingSystem: operatingSystem(userAgent),
+			}
 
-		entry := RequestLog{
-			Timestamp:  start.UTC().Format(time.RFC3339),
-			Method:     r.Method,
-			Endpoint:   r.URL.RequestURI(),
-			IPAddress:  realIP(r),
-			Headers:    headers,
-			StatusCode: wrapped.statusCode,
-			Duration:   time.Since(start).String(),
-		}
+			ctx := context.WithValue(r.Context(), clientKey, rc)
+			next.ServeHTTP(wrapped, r.WithContext(ctx))
 
-		logJSON(entry)
-	})
+			headers := make(map[string]string, len(r.Header))
+			for key, values := range r.Header {
+				headers[key] = values[len(values)-1]
+			}
+
+			rc.headers = headers
+		})
+	}
 }
 
 func realIP(r *http.Request) string {
@@ -80,11 +72,36 @@ func realIP(r *http.Request) string {
 	return r.RemoteAddr
 }
 
-func logJSON(entry RequestLog) {
-	b, err := json.Marshal(entry)
-	if err != nil {
-		log.Printf("middleware: failed to marshal log entry: %v", err)
-		return
+func operatingSystem(userAgent string) string {
+	ua := strings.ToLower(userAgent)
+
+	switch {
+	case strings.Contains(ua, "curl"):
+		return "Unknown (curl)"
+
+	case strings.Contains(ua, "windows"):
+		return "Windows"
+
+	case strings.Contains(ua, "mac os"),
+		strings.Contains(ua, "macintosh"),
+		strings.Contains(ua, "darwin"):
+		return "macOS"
+
+	case strings.Contains(ua, "android"):
+		return "Android"
+
+	case strings.Contains(ua, "iphone"),
+		strings.Contains(ua, "ipad"),
+		strings.Contains(ua, "ios"):
+		return "iOS"
+
+	case strings.Contains(ua, "linux"):
+		return "Linux"
+
+	case strings.Contains(ua, "cros"):
+		return "Chrome OS"
+
+	default:
+		return "Unknown"
 	}
-	log.Println(string(b))
 }
