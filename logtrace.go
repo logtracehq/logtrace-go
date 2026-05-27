@@ -9,39 +9,56 @@ import (
 type Metadata map[string]any
 
 type CreateEventRequest struct {
-	ActionName      string   `json:"action_name"`
-	UserID          string   `json:"user_id,omitempty"`
-	UserName        string   `json:"username,omitempty"`
-	HTTPMethod      string   `json:"http_method"`
-	HTTPStatus      int      `json:"http_status"`
-	HTTPEndpoint    string   `json:"http_endpoint,omitempty"`
-	ClientIP        string   `json:"client_ip"`
-	ClientUserAgent string   `json:"client_user_agent"`
-	Type            string   `json:"type,omitempty"`
-	GeoIPLocation   string   `json:"geo_ip_location,omitempty"`
-	Metadata        Metadata `json:"metadata,omitempty"`
+	ActionName      string         `json:"action_name"`
+	UserID          string         `json:"user_id,omitempty"`
+	UserName        string         `json:"username,omitempty"`
+	HTTPMethod      string         `json:"http_method"`
+	HTTPStatus      int            `json:"http_status"`
+	HTTPEndpoint    string         `json:"http_endpoint,omitempty"`
+	ClientIP        string         `json:"client_ip"`
+	RequestDetails  RequestDetails `json:"request_details,omitempty"`
+	ClientUserAgent string         `json:"client_user_agent"`
+	Type            string         `json:"type,omitempty"`
+	GeoIPLocation   string         `json:"geo_ip_location,omitempty"`
+	Metadata        Metadata       `json:"metadata,omitempty"`
 }
 
 type CreateSessionRequest struct {
-	LoginAt    time.Time `json:"login_at"`
-	Status     string    `json:"status"`
-	UserID     string    `json:"user_id,omitempty"`
-	UserName   string    `json:"username,omitempty"`
-	DeviceInfo string    `json:"device_info,omitempty"`
-	IPAddress  string    `json:"ip_address,omitempty"`
-	Location   string    `json:"location,omitempty"`
-	Token      string    `json:"token,omitempty"`
-	Metadata   Metadata  `json:"metadata,omitempty"`
+	LoginAt        time.Time      `json:"login_at"`
+	Status         string         `json:"status"`
+	UserID         string         `json:"user_id,omitempty"`
+	UserName       string         `json:"username,omitempty"`
+	DeviceInfo     string         `json:"device_info,omitempty"`
+	IPAddress      string         `json:"ip_address,omitempty"`
+	Location       string         `json:"location,omitempty"`
+	RequestDetails RequestDetails `json:"request_details,omitempty"`
+	Token          string         `json:"token,omitempty"`
+	Metadata       Metadata       `json:"metadata,omitempty"`
 }
 
 type CreateAuditLogRequest struct {
-	Action    string   `json:"action"`
-	Timestamp string   `json:"timestamp"`
-	UserID    string   `json:"user_id,omitempty"`
-	UserName  string   `json:"username,omitempty"`
-	IPAddress string   `json:"ip_address,omitempty"`
-	RequestID string   `json:"request_id,omitempty"`
-	Metadata  Metadata `json:"metadata,omitempty"`
+	Action         string         `json:"action"`
+	Timestamp      string         `json:"timestamp"`
+	UserID         string         `json:"user_id,omitempty"`
+	UserName       string         `json:"username,omitempty"`
+	IPAddress      string         `json:"ip_address,omitempty"`
+	RequestDetails RequestDetails `json:"request_details,omitempty"`
+	RequestID      string         `json:"request_id,omitempty"`
+	Metadata       Metadata       `json:"metadata,omitempty"`
+}
+
+type RequestDetails struct {
+	Timestamp       time.Time         `json:"timestamp"`
+	HTTPMethod      string            `json:"http_method"`
+	HTTPEndpoint    string            `json:"http_endpoint"`
+	HTTPStatusCode  int               `json:"http_status_code"`
+	IPAddress       string            `json:"ip_address"`
+	OperatingSystem string            `json:"operating_system"`
+	ClientUserAgent string            `json:"client_user_agent"`
+	GeoIPLocation   string            `json:"geo_ip_location"`
+	RequestHeaders  map[string]string `json:"request_headers"`
+	RequestDuration string            `json:"request_duration"`
+	RequestID       string            `json:"request_id"`
 }
 
 type APIResponse struct {
