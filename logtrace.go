@@ -16,7 +16,7 @@ type CreateEventRequest struct {
 	HTTPStatus      int            `json:"http_status"`
 	HTTPEndpoint    string         `json:"http_endpoint,omitempty"`
 	ClientIP        string         `json:"client_ip"`
-	RequestDetails  RequestDetails `json:"request_details,omitempty"`
+	RequestDetails  RequestDetails `json:"request_details"`
 	ClientUserAgent string         `json:"client_user_agent"`
 	Type            string         `json:"type,omitempty"`
 	GeoIPLocation   string         `json:"geo_ip_location,omitempty"`
@@ -31,7 +31,7 @@ type CreateSessionRequest struct {
 	DeviceInfo     string         `json:"device_info,omitempty"`
 	IPAddress      string         `json:"ip_address,omitempty"`
 	Location       string         `json:"location,omitempty"`
-	RequestDetails RequestDetails `json:"request_details,omitempty"`
+	RequestDetails RequestDetails `json:"request_details"`
 	Token          string         `json:"token,omitempty"`
 	Metadata       Metadata       `json:"metadata,omitempty"`
 }
@@ -42,7 +42,7 @@ type CreateAuditLogRequest struct {
 	UserID         string         `json:"user_id,omitempty"`
 	UserName       string         `json:"username,omitempty"`
 	IPAddress      string         `json:"ip_address,omitempty"`
-	RequestDetails RequestDetails `json:"request_details,omitempty"`
+	RequestDetails RequestDetails `json:"request_details"`
 	RequestID      string         `json:"request_id,omitempty"`
 	Metadata       Metadata       `json:"metadata,omitempty"`
 }
