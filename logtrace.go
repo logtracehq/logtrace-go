@@ -25,6 +25,7 @@ type CreateEventRequest struct {
 
 type CreateSessionRequest struct {
 	LoginAt        time.Time      `json:"login_at"`
+	LogoutAt       time.Time      `json:"logout_at"`
 	Status         string         `json:"status"`
 	UserID         string         `json:"user_id,omitempty"`
 	UserName       string         `json:"username,omitempty"`

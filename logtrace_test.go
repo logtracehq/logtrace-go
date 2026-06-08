@@ -175,6 +175,7 @@ func TestCreateSession_WithAllFields(t *testing.T) {
 	lc := testRequestClient(client)
 	lc.CreateSession(context.Background(), &CreateSessionRequest{
 		LoginAt:    time.Date(2025, 6, 1, 8, 0, 0, 0, time.UTC),
+		LogoutAt:   time.Now().AddDate(0, 0, 1),
 		Status:     "ACTIVE",
 		UserID:     "usr_456",
 		UserName:   "jane",
@@ -274,7 +275,9 @@ func TestPost_SendsToCorrectEndpoints(t *testing.T) {
 			name: "sessions",
 			call: func(lc *requestClient) error {
 				_, err := lc.CreateSession(context.Background(), &CreateSessionRequest{
-					LoginAt: time.Now(), Status: "active",
+					LoginAt:  time.Now(),
+					LogoutAt: time.Now().AddDate(0, 0, 7),
+					Status:   "active",
 				})
 				return err
 			},
