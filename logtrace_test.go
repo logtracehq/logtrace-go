@@ -54,7 +54,7 @@ func TestCreateEvent_Success(t *testing.T) {
 
 	lc := testRequestClient(client)
 	resp, err := lc.CreateEvent(context.Background(), &CreateEventRequest{
-		ActionName: "user.login",
+		Name: "user.login",
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -73,8 +73,8 @@ func TestCreateEvent_MiddlewareFieldsInjected(t *testing.T) {
 		var data map[string]any
 		json.Unmarshal(body, &data)
 
-		if data["action_name"] != "user.signup" {
-			t.Errorf("expected action_name 'user.signup', got %v", data["action_name"])
+		if data["name"] != "user.signup" {
+			t.Errorf("expected name 'user.signup', got %v", data["name"])
 		}
 		if data["http_method"] != "POST" {
 			t.Errorf("expected injected http_method 'POST', got %v", data["http_method"])
@@ -100,7 +100,7 @@ func TestCreateEvent_MiddlewareFieldsInjected(t *testing.T) {
 
 	lc := testRequestClient(client)
 	lc.CreateEvent(context.Background(), &CreateEventRequest{
-		ActionName: "user.signup",
+		Name: "user.signup",
 	})
 }
 
@@ -125,7 +125,7 @@ func TestCreateEvent_WithOptionalFields(t *testing.T) {
 
 	lc := testRequestClient(client)
 	lc.CreateEvent(context.Background(), &CreateEventRequest{
-		ActionName:    "user.login",
+		Name:          "user.login",
 		UserID:        "usr_123",
 		UserName:      "john",
 		GeoIPLocation: "US",
@@ -195,7 +195,7 @@ func TestCreateAuditLog_Success(t *testing.T) {
 
 	lc := testRequestClient(client)
 	resp, err := lc.CreateAuditLog(context.Background(), &CreateAuditLogRequest{
-		Action:    "user.deleted",
+		Name:      "user.deleted",
 		Timestamp: "2025-03-10T14:00:00Z",
 	})
 	if err != nil {
@@ -228,7 +228,7 @@ func TestCreateAuditLog_WithMetadata(t *testing.T) {
 
 	lc := testRequestClient(client)
 	lc.CreateAuditLog(context.Background(), &CreateAuditLogRequest{
-		Action:    "user.role_change",
+		Name:      "user.role_change",
 		Timestamp: "2025-03-10T14:00:00Z",
 		UserID:    "usr_789",
 		RequestID: "req_abc",
@@ -251,7 +251,7 @@ func TestPost_SendsCorrectHeaders(t *testing.T) {
 	})
 
 	testRequestClient(client).CreateEvent(context.Background(), &CreateEventRequest{
-		ActionName: "test",
+		Name: "test",
 	})
 }
 
@@ -265,7 +265,7 @@ func TestPost_SendsToCorrectEndpoints(t *testing.T) {
 			name: "events",
 			call: func(lc *requestClient) error {
 				_, err := lc.CreateEvent(context.Background(), &CreateEventRequest{
-					ActionName: "t",
+					Name: "t",
 				})
 				return err
 			},
@@ -287,7 +287,7 @@ func TestPost_SendsToCorrectEndpoints(t *testing.T) {
 			name: "audit-logs",
 			call: func(lc *requestClient) error {
 				_, err := lc.CreateAuditLog(context.Background(), &CreateAuditLogRequest{
-					Action: "t", Timestamp: "2025-01-01T00:00:00Z",
+					Name: "t", Timestamp: "2025-01-01T00:00:00Z",
 				})
 				return err
 			},
@@ -313,7 +313,7 @@ func TestPost_SendsToCorrectEndpoints(t *testing.T) {
 func TestPost_APIError_400(t *testing.T) {
 	client, _ := testClient(func(r *http.Request) (*http.Response, error) {
 		return jsonResponse(400, map[string]any{
-			"message":    "Bad request: missing action_name",
+			"message":    "Bad request: missing name",
 			"statusCode": 400,
 		}), nil
 	})
@@ -331,8 +331,8 @@ func TestPost_APIError_400(t *testing.T) {
 	if apiErr.StatusCode != 400 {
 		t.Errorf("expected status 400, got %d", apiErr.StatusCode)
 	}
-	if !strings.Contains(apiErr.Message, "missing action_name") {
-		t.Errorf("expected message to contain 'missing action_name', got %q", apiErr.Message)
+	if !strings.Contains(apiErr.Message, "missing name") {
+		t.Errorf("expected message to contain 'missing name', got %q", apiErr.Message)
 	}
 }
 
@@ -345,7 +345,7 @@ func TestPost_APIError_401_Unauthorized(t *testing.T) {
 	})
 
 	lc := testRequestClient(client)
-	_, err := lc.CreateEvent(context.Background(), &CreateEventRequest{ActionName: "t"})
+	_, err := lc.CreateEvent(context.Background(), &CreateEventRequest{Name: "t"})
 
 	apiErr, ok := err.(*Error)
 	if !ok {
@@ -366,7 +366,7 @@ func TestPost_APIError_500_ServerError(t *testing.T) {
 
 	lc := testRequestClient(client)
 	_, err := lc.CreateAuditLog(context.Background(), &CreateAuditLogRequest{
-		Action: "t", Timestamp: "2025-01-01T00:00:00Z",
+		Name: "t", Timestamp: "2025-01-01T00:00:00Z",
 	})
 
 	apiErr, ok := err.(*Error)
@@ -388,7 +388,7 @@ func TestPost_APIError_NonJSONResponse(t *testing.T) {
 	})
 
 	lc := testRequestClient(client)
-	_, err := lc.CreateEvent(context.Background(), &CreateEventRequest{ActionName: "t"})
+	_, err := lc.CreateEvent(context.Background(), &CreateEventRequest{Name: "t"})
 
 	apiErr, ok := err.(*Error)
 	if !ok {
@@ -408,7 +408,7 @@ func TestPost_NetworkError(t *testing.T) {
 	})
 
 	lc := testRequestClient(client)
-	_, err := lc.CreateEvent(context.Background(), &CreateEventRequest{ActionName: "t"})
+	_, err := lc.CreateEvent(context.Background(), &CreateEventRequest{Name: "t"})
 
 	if err == nil {
 		t.Fatal("expected error, got nil")
@@ -467,7 +467,7 @@ func TestPost_CancelledContext(t *testing.T) {
 	cancel()
 
 	lc := testRequestClient(client)
-	_, err := lc.CreateEvent(ctx, &CreateEventRequest{ActionName: "t"})
+	_, err := lc.CreateEvent(ctx, &CreateEventRequest{Name: "t"})
 
 	if err == nil {
 		t.Fatal("expected error for cancelled context")

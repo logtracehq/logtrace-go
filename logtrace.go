@@ -9,7 +9,7 @@ import (
 type Metadata map[string]any
 
 type CreateEventRequest struct {
-	ActionName      string         `json:"action_name"`
+	Name            string         `json:"name"`
 	UserID          string         `json:"user_id,omitempty"`
 	UserName        string         `json:"username,omitempty"`
 	HTTPMethod      string         `json:"http_method"`
@@ -38,7 +38,7 @@ type CreateSessionRequest struct {
 }
 
 type CreateAuditLogRequest struct {
-	Action         string         `json:"action"`
+	Name           string         `json:"name"`
 	Timestamp      string         `json:"timestamp"`
 	UserID         string         `json:"user_id,omitempty"`
 	UserName       string         `json:"username,omitempty"`

@@ -32,12 +32,12 @@ func main() {
 		lc := logtrace.FromContext(r.Context(), client)
 
 		_, err := lc.CreateEvent(r.Context(), &logtrace.CreateEventRequest{
-			ActionName: "user.login",
+			Name: "user.login",
 			UserID:     "12345",
 			UserName:   "jane_doe",
 			HTTPStatus: "200",
 			Metadata: logtrace.M    etadata{
-				"action":      "login",
+				"name":      "login",
 				"type":        "user",
 				"description": "User logged in successfully",
 			},
@@ -60,11 +60,11 @@ func main() {
 
 		// Create an audit log
 		_, err = lc.CreateAuditLog(r.Context(), &logtrace.CreateAuditLogRequest{
-			Action:    "user.deleted",
+			Name:    "user.deleted",
 			Timestamp: time.Now().Format(time.RFC3339),
 			UserName:  "jane_doe",
 			Metadata: logtrace.Metadata{
-				"action":      "deletion",
+				"name":      "deletion",
 				"type":        "user",
 				"description": "User account was deleted",
 			},
@@ -82,4 +82,3 @@ func main() {
 	log.Fatal(http.ListenAndServe(":5000", client.Logger(mux)))
 }
 ```
-
